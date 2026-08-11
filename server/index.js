@@ -47,13 +47,23 @@ app.use((err, req, res, next) => {
   });
 });
 
-app.listen(PORT, async () => {
-  console.log(`Circles running on http://localhost:${PORT}`);
-  const status = await checkConnection();
-  if (!status.ok) {
-    console.warn(`Warning: could not reach CognoDB at startup (${status.message}).`);
-    console.warn('The app will still start, but API calls will return 503 until the database is reachable.');
-  } else {
-    console.log('Connected to CognoDB.');
-  }
-});
+if (require.main === module) {
+  app.listen(PORT, async () => {
+    console.log(`Circles running on http://localhost:${PORT}`);
+
+    const status = await checkConnection();
+
+    if (!status.ok) {
+      console.warn(
+        `Warning: could not reach CognoDB at startup (${status.message}).`
+      );
+      console.warn(
+        'The app will still start, but API calls will return 503 until the database is reachable.'
+      );
+    } else {
+      console.log('Connected to CognoDB.');
+    }
+  });
+}
+
+module.exports = app;

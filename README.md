@@ -20,7 +20,7 @@ Circles is fundamentally about *relationships between relationships* — friends
 - **The interesting questions are about connectivity, not aggregation.** None of the core features here are "sum this column grouped by that column" — they're "what's reachable from this node, through which relationship types, within how many hops." That's the graph database's home turf.
 - **The schema grows by adding relationship types, not migrations.** Adding "co-attended an event" as a recommendation signal is a new MATCH clause, not a new join table and foreign key migration.
 
-Where a relational database would still be fine (e.g. storing a user's raw profile fields) we still use node properties for that — the graph model isn't forced onto data that doesn't need it.
+Where a relational database would still be fine (e.g. storing a user's raw profile fields) we still use node properties for that the graph model isn't forced onto data that doesn't need it.
 
 ---
 
@@ -98,7 +98,7 @@ circles/
 
 1. Go to [console.cognodb.com/signup](https://console.cognodb.com/signup) and create a free account (no credit card required).
 2. From the console, create a free **c0** instance and pick a region. It provisions in under a minute.
-3. Copy the connection URI (`bolt+s://<instance-id>.databases.cognodb.cloud`) and the generated password for user `cognodb` — **the password is shown once**, so save it immediately.
+3. Copy the connection URI (`bolt+s://<instance-id>.databases.cognodb.cloud`) and the generated password for user `cognodb`  **the password is shown once**, so save it immediately.
 
 ### 2. Configure the app
 
