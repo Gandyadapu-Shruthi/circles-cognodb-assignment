@@ -1,0 +1,19 @@
+{
+  "name": "circles",
+  "version": "1.0.0",
+  "description": "Circles — a graph-powered social discovery app built on CognoDB",
+  "main": "server/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node server/index.js",
+    "seed": "node scripts/seed.js"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "neo4j-driver": "^5.23.0"
+  }
+}

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Circles — find your people</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <div id="app">
+    <aside class="rail">
+      <div class="brand">
+        <svg class="brand-mark" viewBox="0 0 40 40" width="30" height="30" aria-hidden="true">
+          <circle cx="15" cy="20" r="11" fill="var(--gold)" fill-opacity="0.85"/>
+          <circle cx="25" cy="20" r="11" fill="var(--violet)" fill-opacity="0.85" style="mix-blend-mode:screen"/>
+        </svg>
+        <span>Circles</span>
+      </div>
+      <nav class="nav" id="nav">
+        <a href="#/explore" data-route="explore">Explore</a>
+        <a href="#/recommendations" data-route="recommendations">For you</a>
+        <a href="#/path" data-route="path">Path finder</a>
+        <a href="#/groups" data-route="groups">Groups</a>
+        <a href="#/events" data-route="events">Events</a>
+      </nav>
+      <div class="viewer-card" id="viewerCard">
+        <div class="viewer-label">Viewing as</div>
+        <div class="viewer-name" id="viewerName">Nobody selected</div>
+        <button class="link-btn" id="changeViewer">Change</button>
+      </div>
+      <div class="db-status" id="dbStatus"></div>
+    </aside>
+    <main class="main" id="main">
+      <!-- route content injected here -->
+    </main>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/render.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>
