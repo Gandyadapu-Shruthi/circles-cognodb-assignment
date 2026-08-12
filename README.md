@@ -1,179 +1,315 @@
-# Circles
+# Circles — Graph-Powered Social Discovery
+Circles is a social discovery web application backed by **CognoDB**, a managed graph database compatible with the Neo4j JavaScript driver and openCypher.
+The application models people, interests, groups, and events as a connected graph and uses graph traversals to provide recommendations, relationship discovery, and path finding.
+# Live Demo
+Hosted Application:https://circles-cognodb-assignment.vercel.app
+GitHub Repository:https://github.com/Gandyadapu-Shruthi/circles-cognodb-assignment
+# Features
+Explore — Browse people and search profiles by name.
+For You — Personalized recommendations based on friends, interests, and connected events.
+Path Finder — Discover multi-hop connection paths between people.
+Groups — Explore groups and their relationships.
+Events — Explore events, interests, and group relationships.
+Profiles — View individual user profiles and connected information.
+Friendships — Create mutual friend relationships. 
+Graph Visualization — Visualize the connected graph structure.
+# Why a Graph Database?
+Circles is fundamentally about relationships and connections,rather than isolated records.
+A relational database could store users, friendships, interests, groups, and events in separate tables. However, queries involving multiple levels of relationships would require increasingly complex joins.
+A graph database makes these relationships natural to query.
+For example:
+* Who are this person's friends?
+* Who are their friends-of-friends?
+* Which people share similar interests?
+* Which events match a person's interests?
+* Which events are attended by their friends?
+* What path connects two people?
+* How many degrees of separation exist between two users?
+These are graph traversal problems, which makes CognoDB a natural fit for this application.
+# Graph Data Model
+The main node types are:
+* User
+* Interest
+* Group
+* Event
+The main relationships are:
+* User -[:FRIENDS_WITH]-> User
+* User -[:INTERESTED_IN]-> Interest
+* User -[:MEMBER_OF]-> Group
+* User -[:ATTENDED]-> Event
+* Event -[:HOSTED_BY]-> Group
+* Event -[:RELATED_TO]-> Interest
+# Graph Overview
+mermaid
+graph LR
+    U1[User] -->|FRIENDS_WITH| U2[User]
+    U1 -->|INTERESTED_IN| I[Interest]
+    U1 -->|MEMBER_OF| G[Group]
+    U1 -->|ATTENDED| E[Event]
+    E -->|HOSTED_BY| G
+    E -->|RELATED_TO| I
+The graph is centered around relationships so that recommendations and discovery can be generated through traversals instead of static lists.
+# Architecture
+text
+                    ┌──────────────────┐
+                    │     Browser      │
+                    │   Web Interface  │
+                    └────────┬─────────┘
+                             │
+                             │ HTTP
+                             ▼
+                    ┌──────────────────┐
+                    │   Node.js /      │
+                    │   Express API    │
+                    └────────┬─────────┘
+                             │
+                             │ Neo4j Driver
+                             │ openCypher / Bolt
+                             ▼
+                    ┌──────────────────┐
+                    │    CognoDB       │
+                    │  Graph Database  │
+                    └──────────────────┘
 
-A social discovery app backed by [CognoDB](https://console.cognodb.com), a managed graph database. Instead of a flat friend list, Circles helps people find who and what to connect to next:
-
-- **People you may know** — friends-of-friends you're not yet connected to, ranked by mutual friends and shared interests.
-- **Groups your friends are in** that you're not.
-- **Events worth checking out**, matched to your interests and what your friends are attending.
-- **Path finder** — the shortest chain of friendships connecting any two people ("six degrees").
-
-Built for the Wexa AI CognoDB take-home assignment.
-
----
-
-## Why a graph database?
-
-Circles is fundamentally about *relationships between relationships* — friends of friends, groups your friends belong to, interests two people have in common — not rows that happen to reference each other by foreign key. A few concrete reasons a graph model earns its place here over a relational schema:
-
-- **Variable-depth traversals are first-class.** "Who are my friends' friends that I'm not already connected to?" is a 2-hop pattern match in Cypher: `(me)-[:FRIENDS_WITH]->()-[:FRIENDS_WITH]->(candidate)`. The same query in SQL needs a self-join per hop, and the moment you want "up to N hops" (as the path finder does) SQL needs a recursive CTE that gets slower and uglier the deeper it goes. In Cypher, `shortestPath((a)-[:FRIENDS_WITH*..6]-(b))` is one line regardless of depth.
-- **Relationships carry meaning and get queried directly.** `INTERESTED_IN`, `MEMBER_OF`, `FOCUSES_ON`, `ATTENDED` are typed, first-class edges, not join tables you have to remember to join correctly. Ranking recommendations by "count of shared relationship types" falls out naturally from pattern matching.
-- **The interesting questions are about connectivity, not aggregation.** None of the core features here are "sum this column grouped by that column" — they're "what's reachable from this node, through which relationship types, within how many hops." That's the graph database's home turf.
-- **The schema grows by adding relationship types, not migrations.** Adding "co-attended an event" as a recommendation signal is a new MATCH clause, not a new join table and foreign key migration.
-
-Where a relational database would still be fine (e.g. storing a user's raw profile fields) we still use node properties for that the graph model isn't forced onto data that doesn't need it.
-
----
-
-## Data model
-
-```
-                (INTERESTED_IN)
-   (User) ───────────────────────▶ (Interest)
-     │  │                              ▲
-     │  │(LIVES_IN)                    │(FOCUSES_ON)
-     │  ▼                              │
-     │ (City)                       (Group)
-     │                                 ▲  ▲
-     │(FRIENDS_WITH, undirected)       │  │(HOSTED_BY)
-     │◀────────────────────┐    (MEMBER_OF) │
-     └──────────────────────┘        │    (Event)
-                                      │       │
-                                      └───────┘
-                                  (User)-[:ATTENDED]->(Event)
-                                  (Event)-[:RELATED_TO]->(Interest)
-```
-
-**Nodes**
-
-| Label | Key properties |
-|---|---|
-| `User` | `id`, `name`, `age`, `bio`, `avatarColor` |
-| `Interest` | `id`, `name`, `category` |
-| `Group` | `id`, `name`, `description` |
-| `Event` | `id`, `name`, `date`, `location` |
-| `City` | `name` |
-
-**Relationships**
-
-| Relationship | Direction | Meaning |
-|---|---|---|
-| `(:User)-[:FRIENDS_WITH]->(:User)` | stored both ways | mutual friendship |
-| `(:User)-[:INTERESTED_IN {strength}]->(:Interest)` | User → Interest | a person's interests |
-| `(:User)-[:LIVES_IN]->(:City)` | User → City | home city |
-| `(:User)-[:MEMBER_OF {since}]->(:Group)` | User → Group | community membership |
-| `(:Group)-[:FOCUSES_ON]->(:Interest)` | Group → Interest | what a group is about |
-| `(:User)-[:ATTENDED]->(:Event)` | User → Event | event attendance |
-| `(:Event)-[:HOSTED_BY]->(:Group)` | Event → Group | which group runs it |
-| `(:Event)-[:RELATED_TO]->(:Interest)` | Event → Interest | what the event is about |
-
----
-
-## Project structure
-
-```
+The production application is hosted on Vercel.
+# Technology Stack
+| Layer           | Technology                       |
+| --------------- | -------------------------------- |
+| Frontend        | HTML, CSS, JavaScript            |
+| Backend         | Node.js, Express.js              |
+| Database        | CognoDB Cloud                    |
+| Query Language  | openCypher                       |
+| Database Driver | Official Neo4j JavaScript Driver |
+| Hosting         | Vercel                           |
+| Version Control | Git + GitHub                     |
+# Project Structure
+text
 circles/
-├── server/
-│   ├── index.js          # Express app, static file serving, error handling
-│   ├── db.js              # CognoDB (Neo4j driver) connection + query helpers
-│   └── routes/
-│       ├── users.js       # search, profile, friends, recommendations
-│       ├── groups.js      # group list + detail
-│       ├── events.js      # event list
-│       └── path.js        # shortest-path finder
-├── scripts/
-│   └── seed.js             # generates + loads synthetic seed data
-├── public/                 # frontend (vanilla HTML/CSS/JS, no build step)
+│
+├── api/
+│   └── index.js
+│
+├── public/
 │   ├── index.html
-│   ├── css/styles.css
-│   └── js/{api,render,app}.js
+│   ├── styles.css
+│   └── ...
+│
+├── scripts/
+│   └── seed.js
+│
+├── server/
+│   ├── index.js
+│   └── ...
+│
 ├── .env.example
-└── package.json
-```
-
----
-
-## Setup
-
-### 1. Create your CognoDB instance
-
-1. Go to [console.cognodb.com/signup](https://console.cognodb.com/signup) and create a free account (no credit card required).
-2. From the console, create a free **c0** instance and pick a region. It provisions in under a minute.
-3. Copy the connection URI (`bolt+s://<instance-id>.databases.cognodb.cloud`) and the generated password for user `cognodb`  **the password is shown once**, so save it immediately.
-
-### 2. Configure the app
+├── .gitignore
+├── package.json
+├── package-lock.json
+├── vercel.json
+└── README.md
+# Getting Started
+# 1. Clone the Repository
 
 ```bash
-git clone <this-repo-url>
-cd circles
-cp .env.example .env
+git clone https://github.com/Gandyadapu-Shruthi/circles-cognodb-assignment.git
+cd circles-cognodb-assignment
 ```
 
-Edit `.env`:
-
-```
-COGNODB_URI=bolt+s://<instance-id>.databases.cognodb.cloud
-COGNODB_USER=cognodb
-COGNODB_PASSWORD=<your generated password>
-PORT=3000
-```
-
-### 3. Install, seed, run
+## 2. Install Dependencies
 
 ```bash
 npm install
-npm run seed     # wipes the instance and loads ~160 users, interests, groups, events
-npm start        # serves the app at http://localhost:3000
 ```
 
-If CognoDB is unreachable, the app still starts — API routes return `503` with a clear error, and the frontend shows a "Database unreachable" indicator and empty/error states instead of breaking. This is deliberate: see `server/db.js` and `server/index.js`.
+## 3. Create a CognoDB Instance
 
-### 4. Deploy (optional but expected)
+Create a free CognoDB Cloud instance.
 
-Any Node-friendly free host works (Render, Railway, Fly.io). Set the same three `COGNODB_*` environment variables in the host's dashboard — never commit `.env`. Build command: `npm install`. Start command: `npm start`.
+You will need:
 
----
+* CognoDB connection URI
+* CognoDB username
+* CognoDB password
 
-## The main queries, explained
+The application uses the `cognodb` user and a Bolt connection URI.
 
-All queries live in `server/routes/*.js` and are parameterised — no string-concatenated Cypher anywhere.
+## 4. Configure Environment Variables
 
-**1. People you may know** (`GET /api/users/:id/recommendations/people`) — the core multi-hop query:
+Create a `.env` file based on `.env.example`.
 
-```cypher
-MATCH (me:User {id: $id})-[:FRIENDS_WITH]->(mutual:User)-[:FRIENDS_WITH]->(candidate:User)
-WHERE candidate <> me AND NOT (me)-[:FRIENDS_WITH]->(candidate)
-WITH me, candidate, count(DISTINCT mutual) AS mutualFriends
-OPTIONAL MATCH (me)-[:INTERESTED_IN]->(shared:Interest)<-[:INTERESTED_IN]-(candidate)
-WITH me, candidate, mutualFriends, count(DISTINCT shared) AS sharedInterests
-RETURN candidate.id AS id, mutualFriends, sharedInterests
-ORDER BY (mutualFriends + sharedInterests) DESC
+```env
+COGNODB_URI=bolt+s://<your-instance>.databases.cognodb.com
+COGNODB_USER=cognodb
+COGNODB_PASSWORD=<your-password>
+PORT=3000
 ```
 
-A 2-hop traversal (friend-of-friend), excluding existing friends, ranked by two independently-computed relationship counts. This is the query a relational schema handles worst: it's a self-join two levels deep with an anti-join and two separate aggregations.
+**Important:** Never commit `.env` to GitHub.
 
-**2. Path finder — six degrees** (`GET /api/path?from=&to=`):
+The repository intentionally contains `.env.example` instead of the actual credentials.
 
-```cypher
-MATCH (a:User {id: $from}), (b:User {id: $to})
-OPTIONAL MATCH p = shortestPath((a)-[:FRIENDS_WITH*..6]-(b))
-RETURN p IS NOT NULL AS found, length(p) AS hops,
-       [n IN nodes(p) | {id: n.id, name: n.name}] AS path
+## 5. Seed the Database
+
+Run:
+
+```bash
+npm run seed
 ```
 
-Variable-length pattern matching with no fixed hop count baked into the query — this has no clean SQL equivalent without a recursive CTE, and even then, "return the actual shortest path's node list" is awkward to express relationally.
+This loads the application's realistic seed data into CognoDB.
 
-**3. Group recommendations** (`GET /api/users/:id/recommendations/groups`) — groups your friends belong to that you don't, ranked by how many friends are in the group plus shared focus interests.
+## 6. Start the Application
 
-**4. Event recommendations** (`GET /api/users/:id/recommendations/events`) — events tagged with your interests, boosted if friends are attending.
+```bash
+npm start
+```
+
+Open:
+
+```text
+http://localhost:3000
+```
 
 ---
+# Main Graph Queries
+# 1. Friend Relationships
+Friendships are represented directly as graph relationships.
+The application uses a parameterized Cypher query:
+cypher
+MATCH (a:User {id: $fromId}), (b:User {id: $toId})
+MERGE (a)-[:FRIENDS_WITH]->(b)
+MERGE (b)-[:FRIENDS_WITH]->(a)
+Using `MERGE` makes the operation idempotent.
+Parameters are passed separately rather than concatenating user input into the Cypher query.
+# 2. Personalized Event Recommendations
+The recommendation system combines:
+text
+User
+ │
+ ├── INTERESTED_IN ──> Interest
+ │                       │
+ │                       └── RELATED_TO ──> Event
+ │
+ └── FRIENDS_WITH ──> Friend
+                         │
+                         └── ATTENDED ──> Event
 
-## Screenshots
+A simplified version of the query is:
 
-_Add screenshots of the running app here after deploying (Explore, a profile page, the recommendations page, and the path finder are the most representative)._ 
+cypher
+MATCH (me:User {id: $id})-[:INTERESTED_IN]->(interest:Interest)
+      <-[:RELATED_TO]-(e:Event)
 
----
+WITH me, e, count(DISTINCT interest) AS interestMatch
 
-## Notes on the seed data
+OPTIONAL MATCH (me)-[:FRIENDS_WITH]->(friend:User)-[:ATTENDED]->(e)
 
-`scripts/seed.js` generates ~160 synthetic users, 28 interests across 8 categories, 18 interest-based groups, ~45-50 events, and friendships weighted toward shared-interest homophily (so recommendations reflect real clustering, not pure randomness) plus a smaller number of random long-range friendships so the graph stays connected without flattening every path to 1-2 hops. Running `npm run seed` again wipes and regenerates the whole graph — safe to re-run any time.
+WITH e, interestMatch, count(DISTINCT friend) AS friendsGoing
+
+OPTIONAL MATCH (e)-[:HOSTED_BY]->(g:Group)
+
+RETURN
+    e.id AS id,
+    e.name AS name,
+    e.date AS date,
+    e.location AS location,
+    g.name AS groupName,
+    interestMatch,
+    friendsGoing
+
+ORDER BY e.date ASC,
+         (friendsGoing * 2 + interestMatch) DESC
+
+LIMIT $limit
+This query demonstrates how graph relationships can combine several signals to produce useful recommendations.
+# Multi-Hop Graph Traversal
+The For You and Path Finder features use graph traversal.
+For example:
+
+```text
+Aisha
+  │
+  │ FRIENDS_WITH
+  ▼
+Sofia
+  │
+  │ FRIENDS_WITH
+  ▼
+Tessa
+  │
+  │ FRIENDS_WITH
+  ▼
+Amara
+```
+The application can therefore determine that Aisha and Amara are connected through multiple relationship hops.
+This type of relationship traversal is one of the main reasons a graph database is useful for Circles.
+# API Endpoints
+# Health Check
+http
+GET /api/health
+# Get User Friends
+http
+GET /api/users/:id/friends
+Example:
+http
+GET /api/users/u1/friends
+The friendship endpoint creates the relationship in both directions.
+# Error Handling
+The application handles database connectivity problems gracefully.
+If CognoDB becomes unavailable, the API returns an appropriate error response instead of crashing the entire application.
+The frontend also provides an error state when data cannot be retrieved.
+# Security
+Database credentials are stored using environment variables.
+The following values are **never committed to GitHub**:
+```text
+COGNODB_URI
+COGNODB_PASSWORD
+```
+The repository only contains:
+
+```text
+The production credentials are configured through Vercel environment variables.
+# Explore
+The Explore page allows users to browse and search people.
+# For You
+The For You page generates relationship-based recommendations.
+# Path Finder
+Path Finder displays the connection between users and the degrees of separation.
+# Deployment
+The application is deployed using Vercel.
+text
+GitHub
+   │
+   ▼
+Vercel
+   │
+   ▼
+Node.js / Express
+   │
+   ▼
+CognoDB Cloud
+
+
+#Production URL
+https://circles-cognodb-assignment.vercel.app
+Production environment variables are configured in Vercel rather than stored in the repository.
+# What This Project Demonstrates
+This project demonstrates:
+* Graph data modeling
+* CognoDB integration
+* Neo4j JavaScript Driver usage
+* Parameterized openCypher queries
+* Multi-hop graph traversal
+* Relationship-based recommendations
+* Seed data generation
+* REST API development
+* Express.js backend architecture
+* Frontend graph exploration
+* Environment-based secret management
+* Graceful database error handling
+* Vercel deployment
+# Author
+Gandyadapu-Shruthi
+GitHub:https://github.com/Gandyadapu-Shruthi
+
+
